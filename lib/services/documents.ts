@@ -16,9 +16,59 @@ const SEARCH_FIELDS = [
   "city",
   "state",
 ];
+const EXPORT_LIMIT = 5000;
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function startOfDay(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
+function endOfDay(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setHours(23, 59, 59, 999);
+
+  return date;
+}
+
+function dateStringExpression(field: string, format?: string) {
+  return {
+    $dateFromString: {
+      dateString: `$${field}`,
+      ...(format ? { format } : {}),
+      onError: null,
+      onNull: null,
+    },
+  };
+}
+
+function dateExprRange(dateValue: Record<string, unknown>, from?: Date | null, to?: Date | null) {
+  const parts: Document[] = [];
+
+  if (from) {
+    parts.push({ $gte: [dateValue, from] });
+  }
+
+  if (to) {
+    parts.push({ $lte: [dateValue, to] });
+  }
+
+  return parts.length === 1 ? parts[0] : { $and: parts };
 }
 
 function buildFilter(query: DataQuery) {
@@ -36,18 +86,30 @@ function buildFilter(query: DataQuery) {
   }
 
   if (query.dateFrom || query.dateTo) {
-    const dateField = query.dateField || "createdAt";
-    const dateFilter: Record<string, Date> = {};
+    const dateField = query.dateField || "createdat";
+    const from = query.dateFrom ? startOfDay(query.dateFrom) : null;
+    const to = query.dateTo ? endOfDay(query.dateTo) : null;
 
-    if (query.dateFrom) {
-      dateFilter.$gte = new Date(query.dateFrom);
+    if (from || to) {
+      const dateFilter: Record<string, Date> = {};
+
+      if (from) {
+        dateFilter.$gte = from;
+      }
+
+      if (to) {
+        dateFilter.$lte = to;
+      }
+
+      clauses.push({
+        $or: [
+          { [dateField]: dateFilter },
+          { $expr: dateExprRange(dateStringExpression(dateField), from, to) },
+          { $expr: dateExprRange(dateStringExpression(dateField, "%d/%m/%Y %H:%M:%S"), from, to) },
+          { $expr: dateExprRange(dateStringExpression(dateField, "%d/%m/%Y"), from, to) },
+        ],
+      });
     }
-
-    if (query.dateTo) {
-      dateFilter.$lte = new Date(query.dateTo);
-    }
-
-    clauses.push({ [dateField]: dateFilter });
   }
 
   if (clauses.length === 0) {
@@ -102,6 +164,6 @@ export async function listDocumentsForExport(
   return listDocuments(dbName, collectionName, role, {
     ...query,
     page: 1,
-    limit: Math.min(query.limit || 100, 100),
+    limit: EXPORT_LIMIT,
   });
 }

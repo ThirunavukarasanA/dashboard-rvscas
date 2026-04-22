@@ -38,8 +38,8 @@ export const dataQuerySchema = z.object({
     .max(80)
     .optional()
     .transform((value) => safeField(value ?? null)),
-  dateFrom: z.string().datetime().optional().catch(undefined),
-  dateTo: z.string().datetime().optional().catch(undefined),
+  dateFrom: z.string().trim().max(30).optional().catch(undefined),
+  dateTo: z.string().trim().max(30).optional().catch(undefined),
 });
 
 export type DataQuery = z.infer<typeof dataQuerySchema>;

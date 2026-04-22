@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import DatePicker from "react-datepicker";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { compactValue } from "@/lib/utils/format";
@@ -26,6 +27,18 @@ function visibleColumns(rows: DocumentRow[]) {
   return Array.from(columns).slice(0, 12);
 }
 
+function formatDateParam(date: Date | null) {
+  if (!date) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export function CollectionExplorer({
   dbName,
   collectionName,
@@ -38,6 +51,9 @@ export function CollectionExplorer({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [field, setField] = useState("");
   const [value, setValue] = useState("");
+  const [dateField, setDateField] = useState("createdat");
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [sortBy, setSortBy] = useState("_id");
@@ -73,8 +89,23 @@ export function CollectionExplorer({
       params.set("value", value);
     }
 
+    const formattedDateFrom = formatDateParam(dateFrom);
+    const formattedDateTo = formatDateParam(dateTo);
+
+    if (formattedDateFrom || formattedDateTo) {
+      params.set("dateField", dateField || "createdat");
+    }
+
+    if (formattedDateFrom) {
+      params.set("dateFrom", formattedDateFrom);
+    }
+
+    if (formattedDateTo) {
+      params.set("dateTo", formattedDateTo);
+    }
+
     return params.toString();
-  }, [page, limit, sortBy, sortOrder, debouncedSearch, field, value]);
+  }, [page, limit, sortBy, sortOrder, debouncedSearch, field, value, dateField, dateFrom, dateTo]);
 
   useEffect(() => {
     let ignore = false;
@@ -116,7 +147,7 @@ export function CollectionExplorer({
   const exportParams = useMemo(() => {
     const params = new URLSearchParams(queryString);
     params.set("page", "1");
-    params.set("limit", "100");
+    params.delete("limit");
     return params;
   }, [queryString]);
 
@@ -138,7 +169,7 @@ export function CollectionExplorer({
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 xl:grid-cols-[1.5fr_1fr_auto]">
+      <section className="grid gap-3 2xl:grid-cols-[1.2fr_0.9fr_1.1fr_auto]">
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -160,6 +191,63 @@ export function CollectionExplorer({
               setPage(1);
             }}
             placeholder="Exact value"
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-[1fr_150px_150px]">
+          <Input
+            list="date-field-suggestions"
+            value={dateField}
+            onChange={(event) => {
+              setDateField(event.target.value);
+              setPage(1);
+            }}
+            placeholder="Date field"
+          />
+          <datalist id="date-field-suggestions">
+            <option value="createdat" />
+            <option value="createdAt" />
+            <option value="created_at" />
+            <option value="updatedat" />
+            <option value="updatedAt" />
+            <option value="date" />
+          </datalist>
+          <DatePicker
+            selected={dateFrom}
+            onChange={(date: Date | null) => {
+              setDateFrom(date);
+              setPage(1);
+            }}
+            selectsStart
+            startDate={dateFrom}
+            endDate={dateTo}
+            maxDate={dateTo ?? undefined}
+            isClearable
+            placeholderText="From date"
+            dateFormat="dd/MM/yyyy"
+            wrapperClassName="w-full"
+            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500"
+            calendarClassName="rvscas-datepicker"
+            popperClassName="rvscas-datepicker-popper"
+            ariaLabelledBy="date-from-label"
+          />
+          <DatePicker
+            selected={dateTo}
+            onChange={(date: Date | null) => {
+              setDateTo(date);
+              setPage(1);
+            }}
+            selectsEnd
+            startDate={dateFrom}
+            endDate={dateTo}
+            minDate={dateFrom ?? undefined}
+            isClearable
+            placeholderText="To date"
+            dateFormat="dd/MM/yyyy"
+            wrapperClassName="w-full"
+            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500"
+            calendarClassName="rvscas-datepicker"
+            popperClassName="rvscas-datepicker-popper"
+            ariaLabelledBy="date-to-label"
           />
         </div>
         <div className="grid grid-cols-4 gap-2">
@@ -217,10 +305,10 @@ export function CollectionExplorer({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="rvscas-table-scroll max-h-[62vh] overflow-auto">
           <table className="min-w-full table-fixed border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+              <tr className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                 {columns.length > 0 ? (
                   columns.map((column) => (
                     <th key={column} className="w-48 px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
