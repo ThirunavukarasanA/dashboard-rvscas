@@ -1,4 +1,5 @@
 import { canExport, requireRoleForCollection } from "@/lib/auth/guards";
+import { addProgrammeNamesToAdmissionsExport } from "@/lib/services/admissions";
 import { audit } from "@/lib/services/audit";
 import { listDocumentsForExport } from "@/lib/services/documents";
 import { toCsv, toPdf, toXlsx } from "@/lib/services/exporters";
@@ -35,24 +36,30 @@ export async function GET(
       session.user.role,
       query,
     );
+    const documents = await addProgrammeNamesToAdmissionsExport(
+      decodedDbName,
+      decodedCollectionName,
+      session.user.role,
+      data.documents,
+    );
     const stamp = new Date().toISOString();
     const fileBase = `${decodedDbName}-${decodedCollectionName}-${stamp.slice(0, 10)}`;
     const meta = {
       database: decodedDbName,
       collection: decodedCollectionName,
       exportedAt: stamp,
-      totalRows: String(data.documents.length),
+      totalRows: String(documents.length),
     };
 
     audit({
       action: "export",
       user: session.user,
       target: `${decodedDbName}.${decodedCollectionName}`,
-      metadata: { type, rows: data.documents.length },
+      metadata: { type, rows: documents.length },
     });
 
     if (type === "json") {
-      return new Response(JSON.stringify({ meta, documents: data.documents }, null, 2), {
+      return new Response(JSON.stringify({ meta, documents }, null, 2), {
         headers: {
           "Content-Type": "application/json",
           "Content-Disposition": `attachment; filename="${fileBase}.json"`,
@@ -61,7 +68,7 @@ export async function GET(
     }
 
     if (type === "xlsx") {
-      const body = Uint8Array.from(toXlsx(data.documents, decodedCollectionName)).buffer;
+      const body = Uint8Array.from(toXlsx(documents, decodedCollectionName)).buffer;
 
       return new Response(body, {
         headers: {
@@ -74,7 +81,7 @@ export async function GET(
     if (type === "pdf") {
       const body = Uint8Array.from(
         toPdf(
-          data.documents,
+          documents,
           `${decodedDbName} / ${decodedCollectionName}`,
           `Exported ${stamp}. Showing up to 50 rows.`,
         ),
@@ -91,7 +98,7 @@ export async function GET(
       );
     }
 
-    return new Response(toCsv(data.documents, meta), {
+    return new Response(toCsv(documents, meta), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${fileBase}.csv"`,

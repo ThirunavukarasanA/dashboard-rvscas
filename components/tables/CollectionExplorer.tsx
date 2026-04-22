@@ -167,7 +167,7 @@ export function CollectionExplorer({
             <a
               key={type}
               href={exportHref(type)}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-slate-700 bg-slate-900 px-3 text-xs font-semibold uppercase text-slate-100 hover:border-emerald-400 hover:text-emerald-200"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold uppercase text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-emerald-400 dark:hover:text-emerald-200"
             >
               {type}
             </a>
@@ -175,10 +175,12 @@ export function CollectionExplorer({
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-800 bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white/90 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
           <div>
-            <p className="text-sm font-medium text-white">{total.toLocaleString()} records</p>
+            <p className="text-sm font-medium text-slate-950 dark:text-white">
+              {total.toLocaleString()} records
+            </p>
             <p className="text-xs text-slate-500">
               Page {page} of {totalPages}
             </p>
@@ -190,7 +192,7 @@ export function CollectionExplorer({
                 setLimit(Number(event.target.value));
                 setPage(1);
               }}
-              className="h-9 rounded-md border border-slate-700 bg-slate-950 px-2 text-sm text-white"
+              className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             >
               <option value={25}>25 rows</option>
               <option value={50}>50 rows</option>
@@ -218,13 +220,13 @@ export function CollectionExplorer({
         <div className="overflow-x-auto">
           <table className="min-w-full table-fixed border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 bg-slate-950">
+              <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
                 {columns.length > 0 ? (
                   columns.map((column) => (
-                    <th key={column} className="w-48 px-4 py-3 text-left text-xs font-semibold text-slate-400">
+                    <th key={column} className="w-48 px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
                       <button
                         type="button"
-                        className="flex max-w-full items-center gap-2 truncate text-left hover:text-emerald-200"
+                        className="flex max-w-full items-center gap-2 truncate text-left transition hover:text-emerald-700 dark:hover:text-emerald-200"
                         onClick={() => sortColumn(column)}
                       >
                         <span className="truncate">{column}</span>
@@ -233,20 +235,20 @@ export function CollectionExplorer({
                     </th>
                   ))
                 ) : (
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Records</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Records</th>
                 )}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-slate-400" colSpan={Math.max(columns.length, 1)}>
-                    Loading records
+                  <td className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400" colSpan={Math.max(columns.length, 1)}>
+                    <span className="animate-soft-pulse">Loading records</span>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-red-200" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-10 text-center text-sm text-red-600 dark:text-red-200" colSpan={Math.max(columns.length, 1)}>
                     {error}
                   </td>
                 </tr>
@@ -258,9 +260,12 @@ export function CollectionExplorer({
                 </tr>
               ) : (
                 rows.map((row, index) => (
-                  <tr key={compactValue(row._id) || index} className="border-b border-slate-800/80">
+                  <tr
+                    key={compactValue(row._id) || index}
+                    className="border-b border-slate-200/80 transition hover:bg-emerald-50/70 dark:border-slate-800/80 dark:hover:bg-slate-950/70"
+                  >
                     {columns.map((column) => (
-                      <td key={column} className="w-48 px-4 py-3 align-top text-sm text-slate-200">
+                      <td key={column} className="w-48 px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-200">
                         <div className="max-h-20 overflow-hidden break-words font-mono text-xs leading-5">
                           {compactValue(row[column])}
                         </div>

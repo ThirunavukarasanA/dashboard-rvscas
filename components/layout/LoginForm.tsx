@@ -36,16 +36,22 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="w-full max-w-md rounded-md border border-slate-800 bg-slate-900 p-6">
+    <form
+      onSubmit={submit}
+      className="animate-fade-up w-full max-w-md rounded-md border border-slate-200 bg-white/90 p-6 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
+    >
       <div>
-        <h1 className="text-2xl font-semibold text-white">Dashboard login</h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="font-mono text-xs uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-300">
+          RVS CAS
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">Dashboard login</h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
           Sign in to browse configured databases and export records.
         </p>
       </div>
       <div className="mt-6 space-y-4">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-300">Email</span>
+          <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Email</span>
           <Input
             type="email"
             value={email}
@@ -55,7 +61,7 @@ export function LoginForm() {
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-300">Password</span>
+          <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Password</span>
           <Input
             type="password"
             value={password}
@@ -65,7 +71,11 @@ export function LoginForm() {
           />
         </label>
       </div>
-      {error ? <p className="mt-4 rounded-md bg-red-950 px-3 py-2 text-sm text-red-200">{error}</p> : null}
+      {error ? (
+        <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+          {error}
+        </p>
+      ) : null}
       <Button className="mt-6 w-full" disabled={loading}>
         {loading ? "Signing in" : "Sign in"}
       </Button>
