@@ -33,7 +33,7 @@ export function DashboardShell({
         desktopOpen ? "lg:grid-cols-[310px_1fr]" : "lg:grid-cols-[72px_1fr]"
       }`}
     >
-      <div className="hidden lg:block">
+      <div className="hidden h-screen overflow-hidden lg:sticky lg:top-0 lg:block">
         <Sidebar
           databases={databases}
           collapsed={!desktopOpen}

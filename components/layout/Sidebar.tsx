@@ -59,7 +59,7 @@ export function Sidebar({
 
   return (
     <aside
-      className={`flex h-full w-full flex-col border-r border-slate-200 bg-white/90 text-slate-900 shadow-sm backdrop-blur-xl transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100 ${
+      className={`flex h-full min-h-0 w-full flex-col border-r border-slate-200 bg-white/90 text-slate-900 shadow-sm backdrop-blur-xl transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100 ${
         collapsed ? "items-center" : ""
       }`}
     >
@@ -100,7 +100,7 @@ export function Sidebar({
         ) : null}
       </div>
 
-      <nav className="w-full flex-1 overflow-y-auto py-2">
+      <nav className="rvscas-sidebar-scroll min-h-0 w-full flex-1 overflow-y-auto py-2">
         <div className="space-y-0.5">
           {databases.map((database) => {
             const open = openDatabases.has(database.dbName);

@@ -62,6 +62,7 @@ export function CollectionExplorer({
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -141,7 +142,7 @@ export function CollectionExplorer({
     return () => {
       ignore = true;
     };
-  }, [dbName, collectionName, queryString]);
+  }, [dbName, collectionName, queryString, refreshKey]);
 
   const columns = useMemo(() => visibleColumns(rows), [rows]);
   const exportParams = useMemo(() => {
@@ -274,6 +275,18 @@ export function CollectionExplorer({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setRefreshKey((current) => current + 1)}
+              disabled={loading}
+              title="Refresh table data"
+            >
+              <span className={loading ? "animate-spin" : ""} aria-hidden="true">
+                ↻
+              </span>
+              Refresh
+            </Button>
             <select
               value={limit}
               onChange={(event) => {
@@ -305,7 +318,7 @@ export function CollectionExplorer({
           </div>
         </div>
 
-        <div className="rvscas-table-scroll max-h-[62vh] overflow-auto">
+        <div className="rvscas-table-scroll max-h-[52vh] overflow-auto">
           <table className="min-w-full table-fixed border-collapse">
             <thead>
               <tr className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-950">
