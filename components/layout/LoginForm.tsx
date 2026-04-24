@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 export function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,22 +15,37 @@ export function LoginForm() {
     setError("");
     setLoading(true);
 
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email, password }),
+      });
 
-    setLoading(false);
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? "Login failed");
+        return;
+      }
 
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error ?? "Login failed");
-      return;
+      const sessionResponse = await fetch("/api/auth/session", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+
+      if (!sessionResponse.ok) {
+        setError("Login succeeded but session was not established. Please try again.");
+        return;
+      }
+
+      window.location.assign("/dashboard");
+    } catch {
+      setError("Unable to login right now. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/dashboard");
-    router.refresh();
   }
 
   return (
@@ -76,7 +89,7 @@ export function LoginForm() {
           {error}
         </p>
       ) : null}
-      <Button className="mt-6 w-full" disabled={loading}>
+      <Button type="submit" className="mt-6 w-full" disabled={loading}>
         {loading ? "Signing in" : "Sign in"}
       </Button>
     </form>
