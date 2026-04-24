@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DatePicker from "react-datepicker";
+import { FaClone, FaPenToSquare, FaTrash } from "react-icons/fa6";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { compactValue } from "@/lib/utils/format";
@@ -17,14 +18,69 @@ type ApiResponse = {
   error?: string;
 };
 
-function visibleColumns(rows: DocumentRow[]) {
+type AdmissionYearEditForm = {
+  id: string;
+  year: string;
+  fromdate: string;
+  todate: string;
+};
+
+const ADMISSIONS_TAIL_COLUMNS = new Set(["instid", "deptid", "programmeid"]);
+
+function shouldMoveAdmissionsIdsToEnd(dbName: string, collectionName: string) {
+  return dbName === "online-admission" && collectionName === "admissions";
+}
+
+function reorderColumnsForCollection(columns: string[], dbName: string, collectionName: string) {
+  if (!shouldMoveAdmissionsIdsToEnd(dbName, collectionName)) {
+    return columns;
+  }
+
+  const front: string[] = [];
+  const tail: string[] = [];
+
+  for (const column of columns) {
+    if (ADMISSIONS_TAIL_COLUMNS.has(column)) {
+      tail.push(column);
+      continue;
+    }
+
+    front.push(column);
+  }
+
+  return [...front, ...tail];
+}
+
+function visibleColumns(rows: DocumentRow[], dbName: string, collectionName: string) {
   const columns = new Set<string>();
 
   rows.forEach((row) => {
     Object.keys(row).forEach((key) => columns.add(key));
   });
 
-  return Array.from(columns).slice(0, 12);
+  const visible = Array.from(columns).slice(0, 12);
+
+  return reorderColumnsForCollection(visible, dbName, collectionName);
+}
+
+function isAdmissionYearsCollection(dbName: string, collectionName: string) {
+  return dbName === "online-admission" && collectionName === "admissionyears";
+}
+
+function extractDocumentId(value: unknown) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "object" && "$oid" in value) {
+    return String((value as { $oid: unknown }).$oid ?? "");
+  }
+
+  return "";
 }
 
 function formatDateParam(date: Date | null) {
@@ -63,6 +119,9 @@ export function CollectionExplorer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [actionRowId, setActionRowId] = useState("");
+  const [editForm, setEditForm] = useState<AdmissionYearEditForm | null>(null);
+  const [cloneForm, setCloneForm] = useState<AdmissionYearEditForm | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -144,7 +203,15 @@ export function CollectionExplorer({
     };
   }, [dbName, collectionName, queryString, refreshKey]);
 
-  const columns = useMemo(() => visibleColumns(rows), [rows]);
+  const columns = useMemo(
+    () => visibleColumns(rows, dbName, collectionName),
+    [rows, dbName, collectionName],
+  );
+  const canManageAdmissionYears = useMemo(
+    () => isAdmissionYearsCollection(dbName, collectionName),
+    [dbName, collectionName],
+  );
+  const tableColumnCount = Math.max(columns.length + (canManageAdmissionYears ? 1 : 0), 1);
   const exportParams = useMemo(() => {
     const params = new URLSearchParams(queryString);
     params.set("page", "1");
@@ -166,6 +233,157 @@ export function CollectionExplorer({
     const params = new URLSearchParams(exportParams);
     params.set("type", type);
     return `/api/export/${encodeURIComponent(dbName)}/${encodeURIComponent(collectionName)}?${params.toString()}`;
+  }
+
+  function openEdit(row: DocumentRow) {
+    const documentId = extractDocumentId(row._id);
+
+    if (!documentId) {
+      setError("Unable to identify this document for editing.");
+      return;
+    }
+
+    setEditForm({
+      id: documentId,
+      year: compactValue(row.year),
+      fromdate: compactValue(row.fromdate),
+      todate: compactValue(row.todate),
+    });
+  }
+
+  function openClone(row: DocumentRow) {
+    const documentId = extractDocumentId(row._id);
+
+    if (!documentId) {
+      setError("Unable to identify this document for cloning.");
+      return;
+    }
+
+    setCloneForm({
+      id: documentId,
+      year: compactValue(row.year),
+      fromdate: compactValue(row.fromdate),
+      todate: compactValue(row.todate),
+    });
+  }
+
+  async function saveClone() {
+    if (!cloneForm) {
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      fromdate: cloneForm.fromdate.trim(),
+      todate: cloneForm.todate.trim(),
+    };
+    const trimmedYear = cloneForm.year.trim();
+    const numericYear = Number(trimmedYear);
+
+    payload.year = Number.isFinite(numericYear) ? numericYear : trimmedYear;
+    setActionRowId(cloneForm.id);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/data/${encodeURIComponent(dbName)}/${encodeURIComponent(collectionName)}/${encodeURIComponent(cloneForm.id)}/clone`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        setError(data?.error ?? "Unable to clone this record.");
+        return;
+      }
+
+      setCloneForm(null);
+      setRefreshKey((current) => current + 1);
+    } catch {
+      setError("Unable to clone this record right now.");
+    } finally {
+      setActionRowId("");
+    }
+  }
+
+  async function deleteRow(row: DocumentRow) {
+    const documentId = extractDocumentId(row._id);
+
+    if (!documentId) {
+      setError("Unable to identify this document for deleting.");
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this admission year record?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setActionRowId(documentId);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/data/${encodeURIComponent(dbName)}/${encodeURIComponent(collectionName)}/${encodeURIComponent(documentId)}`,
+        { method: "DELETE" },
+      );
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        setError(data?.error ?? "Unable to delete this record.");
+        return;
+      }
+
+      setRefreshKey((current) => current + 1);
+    } catch {
+      setError("Unable to delete this record right now.");
+    } finally {
+      setActionRowId("");
+    }
+  }
+
+  async function saveEdit() {
+    if (!editForm) {
+      return;
+    }
+
+    const updates: Record<string, unknown> = {
+      fromdate: editForm.fromdate.trim(),
+      todate: editForm.todate.trim(),
+    };
+    const trimmedYear = editForm.year.trim();
+    const numericYear = Number(trimmedYear);
+
+    updates.year = Number.isFinite(numericYear) ? numericYear : trimmedYear;
+    setActionRowId(editForm.id);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/data/${encodeURIComponent(dbName)}/${encodeURIComponent(collectionName)}/${encodeURIComponent(editForm.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        setError(data?.error ?? "Unable to update this record.");
+        return;
+      }
+
+      setEditForm(null);
+      setRefreshKey((current) => current + 1);
+    } catch {
+      setError("Unable to update this record right now.");
+    } finally {
+      setActionRowId("");
+    }
   }
 
   return (
@@ -323,18 +541,25 @@ export function CollectionExplorer({
             <thead>
               <tr className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                 {columns.length > 0 ? (
-                  columns.map((column) => (
-                    <th key={column} className="w-48 px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      <button
-                        type="button"
-                        className="flex max-w-full items-center gap-2 truncate text-left transition hover:text-emerald-700 dark:hover:text-emerald-200"
-                        onClick={() => sortColumn(column)}
-                      >
-                        <span className="truncate">{column}</span>
-                        {sortBy === column ? <span>{sortOrder === "asc" ? "A-Z" : "Z-A"}</span> : null}
-                      </button>
-                    </th>
-                  ))
+                  <>
+                    {columns.map((column) => (
+                      <th key={column} className="w-48 px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <button
+                          type="button"
+                          className="flex max-w-full items-center gap-2 truncate text-left transition hover:text-emerald-700 dark:hover:text-emerald-200"
+                          onClick={() => sortColumn(column)}
+                        >
+                          <span className="truncate">{column}</span>
+                          {sortBy === column ? <span>{sortOrder === "asc" ? "A-Z" : "Z-A"}</span> : null}
+                        </button>
+                      </th>
+                    ))}
+                    {canManageAdmissionYears ? (
+                      <th className="w-32 px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        actions
+                      </th>
+                    ) : null}
+                  </>
                 ) : (
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Records</th>
                 )}
@@ -343,19 +568,19 @@ export function CollectionExplorer({
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400" colSpan={tableColumnCount}>
                     <span className="animate-soft-pulse">Loading records</span>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-red-600 dark:text-red-200" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-10 text-center text-sm text-red-600 dark:text-red-200" colSpan={tableColumnCount}>
                     {error}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={tableColumnCount}>
                     No records match the current filters.
                   </td>
                 </tr>
@@ -372,6 +597,42 @@ export function CollectionExplorer({
                         </div>
                       </td>
                     ))}
+                    {canManageAdmissionYears ? (
+                      <td className="w-32 px-4 py-3 align-top">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(row)}
+                            disabled={Boolean(actionRowId)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition hover:border-emerald-500 hover:text-emerald-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-400 dark:hover:text-emerald-200"
+                            title="Edit"
+                            aria-label="Edit row"
+                          >
+                            <FaPenToSquare />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openClone(row)}
+                            disabled={Boolean(actionRowId)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition hover:border-emerald-500 hover:text-emerald-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-400 dark:hover:text-emerald-200"
+                            title="Clone"
+                            aria-label="Clone row"
+                          >
+                            <FaClone />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteRow(row)}
+                            disabled={Boolean(actionRowId)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 bg-white text-red-700 transition hover:border-red-500 hover:text-red-800 disabled:opacity-50 dark:border-red-900/50 dark:bg-slate-900 dark:text-red-300 dark:hover:border-red-600 dark:hover:text-red-200"
+                            title="Delete"
+                            aria-label="Delete row"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               )}
@@ -379,6 +640,108 @@ export function CollectionExplorer({
           </table>
         </div>
       </section>
+      {editForm ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/70 px-4">
+          <div className="w-full max-w-lg rounded-md border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <h2 className="text-lg font-semibold text-white">Edit admission year</h2>
+            <p className="mt-1 text-xs text-slate-400">Document ID: {editForm.id}</p>
+            <div className="mt-4 grid gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">Year</span>
+                <Input
+                  value={editForm.year}
+                  onChange={(event) =>
+                    setEditForm((current) =>
+                      current ? { ...current, year: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">From date</span>
+                <Input
+                  value={editForm.fromdate}
+                  onChange={(event) =>
+                    setEditForm((current) =>
+                      current ? { ...current, fromdate: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">To date</span>
+                <Input
+                  value={editForm.todate}
+                  onChange={(event) =>
+                    setEditForm((current) =>
+                      current ? { ...current, todate: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setEditForm(null)} disabled={Boolean(actionRowId)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={saveEdit} disabled={Boolean(actionRowId)}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {cloneForm ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/70 px-4">
+          <div className="w-full max-w-lg rounded-md border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <h2 className="text-lg font-semibold text-white">Clone admission year</h2>
+            <p className="mt-1 text-xs text-slate-400">Source Document ID: {cloneForm.id}</p>
+            <div className="mt-4 grid gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">Year</span>
+                <Input
+                  value={cloneForm.year}
+                  onChange={(event) =>
+                    setCloneForm((current) =>
+                      current ? { ...current, year: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">From date</span>
+                <Input
+                  value={cloneForm.fromdate}
+                  onChange={(event) =>
+                    setCloneForm((current) =>
+                      current ? { ...current, fromdate: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">To date</span>
+                <Input
+                  value={cloneForm.todate}
+                  onChange={(event) =>
+                    setCloneForm((current) =>
+                      current ? { ...current, todate: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setCloneForm(null)} disabled={Boolean(actionRowId)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={saveClone} disabled={Boolean(actionRowId)}>
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
