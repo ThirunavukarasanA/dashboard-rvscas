@@ -103,27 +103,6 @@ export async function requireSession() {
 
 export async function validateCredentials(email: string, password: string) {
   const normalizedEmail = email.trim().toLowerCase();
-  const adminEmail = process.env.ADMIN_DEFAULT_EMAIL ?? "admin@example.com";
-  const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD ?? "change_this";
-  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
-
-  if (normalizedEmail === adminEmail.trim().toLowerCase()) {
-    const isValid = adminPasswordHash
-      ? await bcrypt.compare(password, adminPasswordHash)
-      : constantTimeEqual(password, adminPassword);
-
-    if (!isValid) {
-      return null;
-    }
-
-    return {
-      email: adminEmail,
-      name: "Admin",
-      role: "super_admin" as const,
-      allowedDatabases: null,
-    };
-  }
-
   const { findDashboardUserByEmail } = await import("@/lib/services/dashboard-users");
   const dashboardUser = await findDashboardUserByEmail(normalizedEmail);
 

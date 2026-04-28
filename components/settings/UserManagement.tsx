@@ -224,7 +224,7 @@ export function UserManagement({ databases }: { databases: DatabaseRegistryEntry
           />
         </div>
 
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-5 flex flex-col items-center gap-3">
           <Button type="button" onClick={createUser}>
             Create user
           </Button>
