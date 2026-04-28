@@ -36,6 +36,7 @@ export function DashboardShell({
       <div className="hidden h-screen overflow-hidden lg:sticky lg:top-0 lg:block">
         <Sidebar
           databases={databases}
+          showSettings={user.role === "super_admin"}
           collapsed={!desktopOpen}
           onToggleCollapse={() => setDesktopOpen((current) => !current)}
         />
@@ -52,6 +53,7 @@ export function DashboardShell({
           <div className="animate-slide-down absolute inset-y-0 left-0 w-[86vw] max-w-[330px] shadow-2xl">
             <Sidebar
               databases={databases}
+              showSettings={user.role === "super_admin"}
               onNavigate={() => setMobileOpen(false)}
               onToggleCollapse={() => setMobileOpen(false)}
             />

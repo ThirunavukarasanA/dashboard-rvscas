@@ -9,7 +9,11 @@ export async function GET(
   try {
     const session = await requireSession();
     const { dbName } = await context.params;
-    const database = assertAllowedDatabase(decodeURIComponent(dbName), session.user.role);
+    const database = assertAllowedDatabase(
+      decodeURIComponent(dbName),
+      session.user.role,
+      session.user.allowedDatabases,
+    );
 
     return ok({ collections: database.collections });
   } catch (error) {

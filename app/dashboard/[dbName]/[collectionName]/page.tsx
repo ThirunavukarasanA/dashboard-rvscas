@@ -15,7 +15,12 @@ export default async function CollectionPage({
   const decodedCollectionName = decodeURIComponent(collectionName);
 
   try {
-    assertAllowedCollection(decodedDbName, decodedCollectionName, session.user.role);
+    assertAllowedCollection(
+      decodedDbName,
+      decodedCollectionName,
+      session.user.role,
+      session.user.allowedDatabases,
+    );
   } catch {
     notFound();
   }

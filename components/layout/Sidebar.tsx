@@ -9,6 +9,7 @@ import Image from "next/image";
 
 type SidebarProps = {
   databases: DatabaseRegistryEntry[];
+  showSettings?: boolean;
   collapsed?: boolean;
   onNavigate?: () => void;
   onToggleCollapse?: () => void;
@@ -16,6 +17,7 @@ type SidebarProps = {
 
 export function Sidebar({
   databases,
+  showSettings = false,
   collapsed = false,
   onNavigate,
   onToggleCollapse,
@@ -102,6 +104,31 @@ export function Sidebar({
 
       <nav className="rvscas-sidebar-scroll min-h-0 w-full flex-1 overflow-y-auto py-2">
         <div className="space-y-0.5">
+          {showSettings ? (
+            <Link
+              href="/dashboard/settings"
+              onClick={onNavigate}
+              className={`grid h-8 w-full items-center text-left text-sm transition ${
+                collapsed
+                  ? "grid-cols-1 justify-items-center px-0"
+                  : "grid-cols-[18px_18px_1fr] gap-1 px-3"
+              } ${
+                pathname === "/dashboard/settings"
+                  ? "bg-emerald-200 text-slate-950 shadow-inner dark:bg-slate-800 dark:text-white"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
+              }`}
+              title="Settings"
+            >
+              {!collapsed ? (
+                <span className="text-xs text-slate-500 dark:text-slate-400">+</span>
+              ) : null}
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 rounded-sm bg-emerald-500 shadow-sm"
+              />
+              {!collapsed ? <span className="truncate font-medium">Settings</span> : null}
+            </Link>
+          ) : null}
           {databases.map((database) => {
             const open = openDatabases.has(database.dbName);
             const activeDatabase = activeDbName === database.dbName;

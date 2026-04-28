@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { getRegistryForRole } from "@/config/db-registry";
+import { getRegistryForUser } from "@/config/db-registry";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { getSession } from "@/lib/auth/session";
 
@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   return (
-    <DashboardShell databases={getRegistryForRole(session.user.role)} user={session.user}>
+    <DashboardShell databases={getRegistryForUser(session.user)} user={session.user}>
       {children}
     </DashboardShell>
   );

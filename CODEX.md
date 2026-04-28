@@ -203,6 +203,16 @@ Users must log in before viewing data.
 - Google sign-in
 - IP restriction for internal staff use
 
+### Current auth extension
+- built-in `.env.local` super admin login remains supported
+- super admin can open a **Settings** page inside the dashboard
+- super admin can create dashboard users
+- each created user can be assigned:
+  - `manager` or `viewer` role
+  - specific database access
+- settings option must be hidden for non-super-admin users
+- non-super-admin users must only see the databases assigned to them
+
 ---
 
 ## 8. Core Features to Build

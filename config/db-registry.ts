@@ -7,6 +7,11 @@ export type DatabaseRegistryEntry = {
   roles?: DatabaseRole[];
 };
 
+export type DashboardAccessUser = {
+  role: DatabaseRole;
+  allowedDatabases?: string[] | null;
+};
+
 export const DB_REGISTRY = [
   {
     dbName: "admin",
@@ -163,16 +168,55 @@ export function getRegistryForRole(role: DatabaseRole) {
   });
 }
 
+export function getRegistryForUser(user: DashboardAccessUser) {
+  const allowedDatabases =
+    user.allowedDatabases === null || user.allowedDatabases === undefined
+      ? null
+      : new Set(user.allowedDatabases);
+
+  return getRegistryForRole(user.role).filter((entry) => {
+    if (user.role === "super_admin" || !allowedDatabases) {
+      return true;
+    }
+
+    return allowedDatabases.has(entry.dbName);
+  });
+}
+
+export function getAssignableDatabasesForRole(role: DatabaseRole) {
+  return DB_REGISTRY.filter((entry) => {
+    const roles = entry.roles as readonly DatabaseRole[] | undefined;
+
+    if (!roles) {
+      return true;
+    }
+
+    return role === "super_admin" && roles.includes("super_admin");
+  });
+}
+
 export function findDatabase(dbName: string) {
   return DB_REGISTRY.find((entry) => entry.dbName === dbName);
 }
 
-export function assertAllowedDatabase(dbName: string, role: DatabaseRole) {
+export function assertAllowedDatabase(
+  dbName: string,
+  role: DatabaseRole,
+  allowedDatabases?: string[] | null,
+) {
   const entry = findDatabase(dbName);
 
   const roles = entry?.roles as readonly DatabaseRole[] | undefined;
+  const allowlist =
+    allowedDatabases === null || allowedDatabases === undefined
+      ? null
+      : new Set(allowedDatabases);
 
-  if (!entry || (roles && !roles.includes(role))) {
+  if (
+    !entry ||
+    (roles && !roles.includes(role)) ||
+    (role !== "super_admin" && allowlist && !allowlist.has(dbName))
+  ) {
     throw new Error("Database is not allowed");
   }
 
@@ -183,8 +227,9 @@ export function assertAllowedCollection(
   dbName: string,
   collectionName: string,
   role: DatabaseRole,
+  allowedDatabases?: string[] | null,
 ) {
-  const entry = assertAllowedDatabase(dbName, role);
+  const entry = assertAllowedDatabase(dbName, role, allowedDatabases);
 
   if (!entry.collections.includes(collectionName)) {
     throw new Error("Collection is not allowed");

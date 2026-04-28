@@ -4,14 +4,29 @@ import { requireSession } from "@/lib/auth/session";
 
 export async function requireRoleForDatabase(dbName: string) {
   const session = await requireSession();
-  assertAllowedDatabase(dbName, session.user.role);
+  assertAllowedDatabase(dbName, session.user.role, session.user.allowedDatabases);
 
   return session;
 }
 
 export async function requireRoleForCollection(dbName: string, collectionName: string) {
   const session = await requireSession();
-  assertAllowedCollection(dbName, collectionName, session.user.role);
+  assertAllowedCollection(
+    dbName,
+    collectionName,
+    session.user.role,
+    session.user.allowedDatabases,
+  );
+
+  return session;
+}
+
+export async function requireSuperAdmin() {
+  const session = await requireSession();
+
+  if (session.user.role !== "super_admin") {
+    throw new Error("Super admin access required");
+  }
 
   return session;
 }
